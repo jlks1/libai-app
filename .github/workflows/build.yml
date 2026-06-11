@@ -3,21 +3,29 @@ name: Build APK
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
     
-    - name: Install buildozer
+    - name: Install dependencies
       run: |
+        sudo apt update
+        sudo apt install -y git zip unzip openjdk-17-jdk
         pip install buildozer cython
+    
+    - name: Accept Android SDK licenses
+      run: |
+        mkdir -p ~/.android
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
     
     - name: Build APK
       run: |
