@@ -19,8 +19,18 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y git zip unzip openjdk-17-jdk
+        sudo apt install -y git zip unzip openjdk-17-jdk wget
         pip install buildozer cython
+        # 预装 Android SDK command-line tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools
+        unzip commandlinetools-linux-*.zip -d ~/.buildozer/android/platform/android-sdk/cmdline-tools
+        mv ~/.buildozer/android/platform/android-sdk/cmdline-tools/cmdline-tools ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest
+        export PATH=$PATH:~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin
+        # 自动接受 licenses
+        yes | ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        # 安装 build-tools 和 platform-tools
+        ~/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3" "platform-tools" "platforms;android-30" || true
     
     - name: Build APK
       run: |
