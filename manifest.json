@@ -1,0 +1,8 @@
+{
+  "name": "诗仙李白",
+  "short_name": "李白",
+  "start_url": "index.html",
+  "display": "standalone",
+  "theme_color": "#07C160",
+  "background_color": "#FFFFFF"
+}
