@@ -114,10 +114,6 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
         
-        .voice-btn.off {
-            background: rgba(150, 150, 150, 0.9);
-        }
-        
         .input-container {
             display: flex;
             padding: 10px 15px;
@@ -183,13 +179,26 @@
             border-radius: 12px;
             margin-left: 10px;
         }
+        
+        .activate-tip {
+            background: rgba(0,0,0,0.6);
+            color: #ffd700;
+            text-align: center;
+            padding: 8px;
+            font-size: 12px;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
     <div class="overlay"></div>
     <div class="title-bar">
-        <span>🍶 诗仙李白 <span class="status-badge" id="voiceStatus">AI语音</span></span>
+        <span>🍶 诗仙李白 <span class="status-badge" id="voiceStatus">免费语音</span></span>
         <button class="voice-toggle" id="voiceToggleBtn">🔊 语音开启</button>
+    </div>
+    
+    <div class="activate-tip" id="activateTip">
+        🔊 点击任意位置激活语音
     </div>
     
     <div class="chat-container" id="chatContainer">
@@ -213,8 +222,7 @@
         const BASE_URL = "https://open.bigmodel.cn/api/paas/v4";
         
         let voiceEnabled = true;
-        let currentAudio = null;
-        let isAudioPlaying = false;
+        let audioActivated = false;
         
         // 对话历史
         let messages = [
@@ -239,89 +247,81 @@
         const voiceToggleBtn = document.getElementById('voiceToggleBtn');
         const voiceStopBtn = document.getElementById('voiceStopBtn');
         const voiceStatus = document.getElementById('voiceStatus');
+        const activateTip = document.getElementById('activateTip');
         
-        // ==================== TTS 语音合成（修正版 - 使用官方音色）====================
+        // ==================== 浏览器语音 ====================
         
-        async function speakWithTTS(text) {
+        function speakWithBrowser(text) {
             if (!voiceEnabled) {
                 console.log("语音已关闭");
                 return;
             }
             
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
+            if (!audioActivated) {
+                console.log("请先点击页面激活语音");
+                return;
             }
             
-            if (voiceStatus) voiceStatus.textContent = "生成语音中...";
-            
-            try {
-                // ✅ 使用官方音色 chuichui（沉稳男声，更像李白）
-                const response = await fetch('https://open.bigmodel.cn/api/paas/v4/audio/speech', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${API_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: "cogtts",
-                        input: text,
-                        voice: "streamer_male"  // ✅ 修正：使用官方支持的音色（沉稳男声）
-                    })
-                });
-                
-                if (!response.ok) {
-                    const errorDetail = await response.text();
-                    console.error("TTS API 错误详情:", errorDetail);
-                    throw new Error(`TTS API 错误: ${response.status}`);
-                }
-                
-                const audioBlob = await response.blob();
-                const audioUrl = URL.createObjectURL(audioBlob);
-                
-                currentAudio = new Audio(audioUrl);
-                
-                currentAudio.onended = () => {
-                    isAudioPlaying = false;
-                    URL.revokeObjectURL(audioUrl);
-                    if (voiceStatus) voiceStatus.textContent = "AI语音";
-                };
-                
-                currentAudio.onplay = () => {
-                    isAudioPlaying = true;
-                    if (voiceStatus) voiceStatus.textContent = "正在朗读...";
-                };
-                
-                currentAudio.onerror = (e) => {
-                    console.error("音频播放错误:", e);
-                    if (voiceStatus) voiceStatus.textContent = "语音失败";
-                    setTimeout(() => {
-                        if (voiceStatus && voiceStatus.textContent === "语音失败") {
-                            voiceStatus.textContent = "AI语音";
-                        }
-                    }, 2000);
-                };
-                
-                await currentAudio.play();
-                
-            } catch (error) {
-                console.error("TTS 语音合成失败:", error);
-                if (voiceStatus) voiceStatus.textContent = "语音失败";
-                setTimeout(() => {
-                    if (voiceStatus && voiceStatus.textContent === "语音失败") {
-                        voiceStatus.textContent = "AI语音";
-                    }
-                }, 2000);
+            if (!('speechSynthesis' in window)) {
+                console.log("浏览器不支持语音");
+                return;
             }
+            
+            window.speechSynthesis.cancel();
+            
+            let utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-CN';
+            utterance.rate = 0.88;
+            utterance.pitch = 1.05;
+            
+            // 尝试获取更好的中文语音
+            let voices = window.speechSynthesis.getVoices();
+            let chineseVoice = voices.find(v => v.lang === 'zh-CN' && (v.name.includes('Tingting') || v.name.includes('Yaoyao')));
+            if (chineseVoice) utterance.voice = chineseVoice;
+            
+            window.speechSynthesis.speak(utterance);
+            
+            if (voiceStatus) voiceStatus.textContent = "朗读中";
+            utterance.onend = () => {
+                if (voiceStatus) voiceStatus.textContent = "免费语音";
+            };
         }
         
         function stopSpeaking() {
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
-                isAudioPlaying = false;
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
             }
-            if (voiceStatus) voiceStatus.textContent = "AI语音";
+            if (voiceStatus) voiceStatus.textContent = "免费语音";
+        }
+        
+        // 激活音频（移动端需要）
+        function activateAudio() {
+            if (audioActivated) return;
+            
+            if (!('speechSynthesis' in window)) return;
+            
+            // 播放静音激活
+            let utterance = new SpeechSynthesisUtterance(' ');
+            utterance.volume = 0;
+            utterance.lang = 'zh-CN';
+            window.speechSynthesis.speak(utterance);
+            
+            audioActivated = true;
+            
+            // 隐藏提示
+            if (activateTip) {
+                activateTip.style.display = 'none';
+            }
+            
+            // 播放欢迎语
+            setTimeout(() => {
+                const welcomeMsg = document.querySelector('.message.ai .bubble')?.innerText;
+                if (welcomeMsg && voiceEnabled) {
+                    speakWithBrowser(welcomeMsg);
+                }
+            }, 500);
+            
+            console.log("语音已激活");
         }
         
         // ==================== 聊天功能 ====================
@@ -355,7 +355,7 @@
         
         function displayAIReply(replyText) {
             addMessage(replyText, false);
-            speakWithTTS(replyText);
+            speakWithBrowser(replyText);
         }
         
         async function getAIReply(userMessage) {
@@ -386,6 +386,11 @@
         }
         
         async function sendMessage() {
+            // 如果还没激活，先激活
+            if (!audioActivated) {
+                activateAudio();
+            }
+            
             const userText = messageInput.value.trim();
             if (!userText) return;
             
@@ -399,13 +404,13 @@
             displayAIReply(aiReply);
         }
         
-        // ==================== 语音控制 ====================
+        // ==================== 控制 ====================
         function toggleVoice() {
             voiceEnabled = !voiceEnabled;
             if (voiceEnabled) {
                 voiceToggleBtn.innerHTML = '🔊 语音开启';
                 voiceToggleBtn.style.background = 'rgba(255,255,255,0.2)';
-                if (voiceStatus) voiceStatus.textContent = "AI语音";
+                if (voiceStatus) voiceStatus.textContent = "免费语音";
             } else {
                 voiceToggleBtn.innerHTML = '🔇 语音关闭';
                 voiceToggleBtn.style.background = 'rgba(200,0,0,0.5)';
@@ -414,7 +419,6 @@
             }
         }
         
-        // ==================== 初始化 ====================
         sendBtn.addEventListener('click', sendMessage);
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
@@ -422,16 +426,11 @@
         voiceToggleBtn.addEventListener('click', toggleVoice);
         voiceStopBtn.addEventListener('click', stopSpeaking);
         
-        function activateAudio() {
-            document.removeEventListener('click', activateAudio);
-            document.removeEventListener('touchstart', activateAudio);
-            console.log("页面已激活，语音功能就绪");
-        }
-        
+        // 点击任意位置激活语音
         document.addEventListener('click', activateAudio);
         document.addEventListener('touchstart', activateAudio);
         
-        console.log("页面加载完成，使用官方音色 chuichui");
+        console.log("免费语音版已加载，点击页面激活语音");
     </script>
 </body>
 </html>
