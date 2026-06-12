@@ -209,13 +209,12 @@
     
     <script>
         // ==================== 配置 ====================
-        // 请替换成你自己的有效 API Key
         const API_KEY = "1142057da44e41c68492a82950637800.FbvrUPhIKqXvm4IU";
         const BASE_URL = "https://open.bigmodel.cn/api/paas/v4";
         
-        let voiceEnabled = true;      // 语音开关
-        let currentAudio = null;       // 当前正在播放的音频
-        let isAudioPlaying = false;     // 是否正在播放中
+        let voiceEnabled = true;
+        let currentAudio = null;
+        let isAudioPlaying = false;
         
         // 对话历史
         let messages = [
@@ -241,7 +240,7 @@
         const voiceStopBtn = document.getElementById('voiceStopBtn');
         const voiceStatus = document.getElementById('voiceStatus');
         
-        // ==================== TTS 语音合成（智谱AI 官方正确接口）====================
+        // ==================== TTS 语音合成（修正版 - 使用官方音色）====================
         
         async function speakWithTTS(text) {
             if (!voiceEnabled) {
@@ -257,7 +256,7 @@
             if (voiceStatus) voiceStatus.textContent = "生成语音中...";
             
             try {
-                // ✅ 使用智谱AI官方正确的语音合成接口
+                // ✅ 使用官方音色 chuichui（沉稳男声，更像李白）
                 const response = await fetch('https://open.bigmodel.cn/api/paas/v4/audio/speech', {
                     method: 'POST',
                     headers: {
@@ -265,9 +264,9 @@
                         'Authorization': `Bearer ${API_KEY}`
                     },
                     body: JSON.stringify({
-                        model: "cogtts",        // ✅ 正确的模型名称
-                        input: text,            // ✅ 正确的文本参数名
-                        voice: "xiaogang"       // 男声音色，更适合李白
+                        model: "cogtts",
+                        input: text,
+                        voice: "chuichui"  // ✅ 修正：使用官方支持的音色（沉稳男声）
                     })
                 });
                 
@@ -432,7 +431,7 @@
         document.addEventListener('click', activateAudio);
         document.addEventListener('touchstart', activateAudio);
         
-        console.log("页面加载完成，已使用正确的智谱语音合成接口");
+        console.log("页面加载完成，使用官方音色 chuichui");
     </script>
 </body>
 </html>
