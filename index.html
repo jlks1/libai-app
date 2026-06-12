@@ -180,12 +180,27 @@
             margin-left: 10px;
         }
         
-        .activate-tip {
-            background: rgba(0,0,0,0.6);
+        .activate-btn {
+            background: #07C160;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px auto;
+            display: block;
+            cursor: pointer;
+            z-index: 2;
+            position: relative;
+        }
+        
+        .tip-bar {
+            background: rgba(0,0,0,0.7);
             color: #ffd700;
             text-align: center;
-            padding: 8px;
-            font-size: 12px;
+            padding: 10px;
+            font-size: 14px;
             z-index: 1;
         }
     </style>
@@ -193,12 +208,12 @@
 <body>
     <div class="overlay"></div>
     <div class="title-bar">
-        <span>🍶 诗仙李白 <span class="status-badge" id="voiceStatus">免费语音</span></span>
+        <span>🍶 诗仙李白 <span class="status-badge" id="voiceStatus">未激活</span></span>
         <button class="voice-toggle" id="voiceToggleBtn">🔊 语音开启</button>
     </div>
     
-    <div class="activate-tip" id="activateTip">
-        🔊 点击任意位置激活语音
+    <div class="tip-bar" id="tipBar">
+        🔊 请点击下方按钮激活语音（仅需一次）
     </div>
     
     <div class="chat-container" id="chatContainer">
@@ -206,6 +221,8 @@
             <div class="bubble">吾乃青莲居士李白，敢问足下何人？今日相逢，且共饮一杯，谈诗论剑可好？</div>
         </div>
     </div>
+    
+    <button class="activate-btn" id="activateBtn">🎤 点击激活语音</button>
     
     <div class="input-container">
         <input type="text" id="messageInput" placeholder="输入消息..." />
@@ -223,6 +240,8 @@
         
         let voiceEnabled = true;
         let audioActivated = false;
+        let voicesLoaded = false;
+        let currentUtterance = null;
         
         // 对话历史
         let messages = [
@@ -247,18 +266,46 @@
         const voiceToggleBtn = document.getElementById('voiceToggleBtn');
         const voiceStopBtn = document.getElementById('voiceStopBtn');
         const voiceStatus = document.getElementById('voiceStatus');
-        const activateTip = document.getElementById('activateTip');
+        const activateBtn = document.getElementById('activateBtn');
+        const tipBar = document.getElementById('tipBar');
         
         // ==================== 浏览器语音 ====================
         
-        function speakWithBrowser(text) {
+        // 等待语音列表加载完成
+        function waitForVoices() {
+            return new Promise((resolve) => {
+                if (voicesLoaded) {
+                    resolve();
+                    return;
+                }
+                if (!('speechSynthesis' in window)) {
+                    resolve();
+                    return;
+                }
+                let voices = window.speechSynthesis.getVoices();
+                if (voices.length > 0) {
+                    voicesLoaded = true;
+                    resolve();
+                    return;
+                }
+                // 监听 voices 加载事件
+                window.speechSynthesis.onvoiceschanged = () => {
+                    voicesLoaded = true;
+                    resolve();
+                };
+                // 2秒超时
+                setTimeout(resolve, 2000);
+            });
+        }
+        
+        async function speakWithBrowser(text) {
             if (!voiceEnabled) {
                 console.log("语音已关闭");
                 return;
             }
             
             if (!audioActivated) {
-                console.log("请先点击页面激活语音");
+                console.log("请先激活语音");
                 return;
             }
             
@@ -267,61 +314,114 @@
                 return;
             }
             
+            // 停止当前朗读
             window.speechSynthesis.cancel();
+            if (currentUtterance) {
+                currentUtterance = null;
+            }
             
+            // 等待语音列表
+            await waitForVoices();
+            
+            // 创建语音请求
             let utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'zh-CN';
-            utterance.rate = 0.88;
+            utterance.rate = 0.85;
             utterance.pitch = 1.05;
+            utterance.volume = 1;
             
-            // 尝试获取更好的中文语音
+            // 获取可用的中文语音
             let voices = window.speechSynthesis.getVoices();
-            let chineseVoice = voices.find(v => v.lang === 'zh-CN' && (v.name.includes('Tingting') || v.name.includes('Yaoyao')));
-            if (chineseVoice) utterance.voice = chineseVoice;
+            let chineseVoices = voices.filter(v => v.lang === 'zh-CN');
+            if (chineseVoices.length > 0) {
+                // 优先选择女声或普通话音色
+                let preferred = chineseVoices.find(v => 
+                    v.name.includes('Tingting') || 
+                    v.name.includes('Yaoyao') ||
+                    v.name.includes('标准')
+                );
+                utterance.voice = preferred || chineseVoices[0];
+            }
             
-            window.speechSynthesis.speak(utterance);
+            currentUtterance = utterance;
             
+            // 更新状态
             if (voiceStatus) voiceStatus.textContent = "朗读中";
+            
             utterance.onend = () => {
-                if (voiceStatus) voiceStatus.textContent = "免费语音";
+                console.log("朗读结束");
+                currentUtterance = null;
+                if (voiceStatus && audioActivated) voiceStatus.textContent = "已激活";
             };
+            
+            utterance.onerror = (e) => {
+                console.error("语音错误:", e);
+                currentUtterance = null;
+                if (voiceStatus && audioActivated) voiceStatus.textContent = "已激活";
+            };
+            
+            // 开始朗读
+            window.speechSynthesis.speak(utterance);
         }
         
         function stopSpeaking() {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
+                if (currentUtterance) {
+                    currentUtterance = null;
+                }
             }
-            if (voiceStatus) voiceStatus.textContent = "免费语音";
+            if (voiceStatus && audioActivated) voiceStatus.textContent = "已激活";
         }
         
-        // 激活音频（移动端需要）
-        function activateAudio() {
-            if (audioActivated) return;
-            
-            if (!('speechSynthesis' in window)) return;
-            
-            // 播放静音激活
-            let utterance = new SpeechSynthesisUtterance(' ');
-            utterance.volume = 0;
-            utterance.lang = 'zh-CN';
-            window.speechSynthesis.speak(utterance);
-            
-            audioActivated = true;
-            
-            // 隐藏提示
-            if (activateTip) {
-                activateTip.style.display = 'none';
+        // 激活语音（通过按钮触发）
+        async function activateAudio() {
+            if (audioActivated) {
+                console.log("语音已激活");
+                return;
             }
             
-            // 播放欢迎语
-            setTimeout(() => {
-                const welcomeMsg = document.querySelector('.message.ai .bubble')?.innerText;
-                if (welcomeMsg && voiceEnabled) {
-                    speakWithBrowser(welcomeMsg);
-                }
-            }, 500);
+            if (!('speechSynthesis' in window)) {
+                alert("您的浏览器不支持语音合成功能");
+                return;
+            }
             
-            console.log("语音已激活");
+            // 更新状态
+            if (voiceStatus) voiceStatus.textContent = "激活中...";
+            
+            // 等待语音列表
+            await waitForVoices();
+            
+            // 先播放一个极短的静音来解锁音频
+            let silentUtterance = new SpeechSynthesisUtterance(" ");
+            silentUtterance.volume = 0;
+            silentUtterance.lang = 'zh-CN';
+            window.speechSynthesis.speak(silentUtterance);
+            
+            // 延迟后播放测试语音
+            setTimeout(() => {
+                let testUtterance = new SpeechSynthesisUtterance("语音已激活");
+                testUtterance.lang = 'zh-CN';
+                testUtterance.rate = 0.9;
+                testUtterance.volume = 1;
+                
+                testUtterance.onstart = () => {
+                    audioActivated = true;
+                    if (voiceStatus) voiceStatus.textContent = "已激活";
+                    if (tipBar) tipBar.style.display = "none";
+                    if (activateBtn) activateBtn.style.display = "none";
+                    console.log("语音激活成功");
+                };
+                
+                testUtterance.onerror = (e) => {
+                    console.error("测试语音播放失败:", e);
+                    if (voiceStatus) voiceStatus.textContent = "激活失败";
+                    // 即使失败也标记为已激活（可能只是没有声音，但API可用）
+                    audioActivated = true;
+                };
+                
+                window.speechSynthesis.speak(testUtterance);
+            }, 100);
         }
         
         // ==================== 聊天功能 ====================
@@ -355,7 +455,9 @@
         
         function displayAIReply(replyText) {
             addMessage(replyText, false);
-            speakWithBrowser(replyText);
+            if (audioActivated && voiceEnabled) {
+                speakWithBrowser(replyText);
+            }
         }
         
         async function getAIReply(userMessage) {
@@ -386,13 +488,14 @@
         }
         
         async function sendMessage() {
-            // 如果还没激活，先激活
-            if (!audioActivated) {
-                activateAudio();
-            }
-            
             const userText = messageInput.value.trim();
             if (!userText) return;
+            
+            // 如果还没激活，提示用户
+            if (!audioActivated) {
+                alert("请先点击「激活语音」按钮");
+                return;
+            }
             
             messageInput.value = '';
             addMessage(userText, true);
@@ -410,12 +513,13 @@
             if (voiceEnabled) {
                 voiceToggleBtn.innerHTML = '🔊 语音开启';
                 voiceToggleBtn.style.background = 'rgba(255,255,255,0.2)';
-                if (voiceStatus) voiceStatus.textContent = "免费语音";
             } else {
                 voiceToggleBtn.innerHTML = '🔇 语音关闭';
                 voiceToggleBtn.style.background = 'rgba(200,0,0,0.5)';
-                if (voiceStatus) voiceStatus.textContent = "语音关闭";
                 stopSpeaking();
+            }
+            if (voiceStatus && audioActivated) {
+                voiceStatus.textContent = voiceEnabled ? "已激活" : "已关闭";
             }
         }
         
@@ -425,12 +529,12 @@
         });
         voiceToggleBtn.addEventListener('click', toggleVoice);
         voiceStopBtn.addEventListener('click', stopSpeaking);
+        activateBtn.addEventListener('click', activateAudio);
         
-        // 点击任意位置激活语音
-        document.addEventListener('click', activateAudio);
-        document.addEventListener('touchstart', activateAudio);
+        // 预加载语音列表
+        waitForVoices();
         
-        console.log("免费语音版已加载，点击页面激活语音");
+        console.log("语音版已加载，请点击「激活语音」按钮");
     </script>
 </body>
 </html>
