@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>诗仙李白 - 百度语音版</title>
+    <title>诗仙</title>
     <style>
         * {
             margin: 0;
@@ -20,6 +20,7 @@
             flex-direction: column;
         }
         
+        /* 半透明遮罩，让文字更清晰 */
         .overlay {
             position: fixed;
             top: 0;
@@ -31,6 +32,7 @@
             z-index: 0;
         }
         
+        /* 聊天区域 */
         .chat-container {
             flex: 1;
             overflow-y: auto;
@@ -41,6 +43,7 @@
             z-index: 1;
         }
         
+        /* 消息气泡 */
         .message {
             display: flex;
             max-width: 80%;
@@ -75,6 +78,7 @@
             border-bottom-left-radius: 4px;
         }
         
+        /* 思考中动画 */
         .thinking .bubble {
             background: rgba(229, 229, 229, 0.95);
             color: #666;
@@ -95,25 +99,7 @@
             80%, 100% { content: '...'; }
         }
         
-        .voice-control {
-            position: fixed;
-            bottom: 80px;
-            right: 20px;
-            z-index: 2;
-        }
-        
-        .voice-btn {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: rgba(7, 193, 96, 0.9);
-            border: none;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
-        
+        /* 输入区域 */
         .input-container {
             display: flex;
             padding: 10px 15px;
@@ -148,6 +134,11 @@
             cursor: pointer;
         }
         
+        .input-container button:active {
+            background: #06AD56;
+        }
+        
+        /* 标题栏 */
         .title-bar {
             background: rgba(0,0,0,0.7);
             color: white;
@@ -156,50 +147,12 @@
             font-size: 18px;
             font-weight: bold;
             z-index: 1;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .voice-toggle {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            cursor: pointer;
-        }
-        
-        .status-badge {
-            background: rgba(0,0,0,0.5);
-            color: #ffd700;
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 12px;
-            margin-left: 10px;
-        }
-        
-        .activate-tip {
-            background: rgba(0,0,0,0.6);
-            color: #ffd700;
-            text-align: center;
-            padding: 8px;
-            font-size: 12px;
-            z-index: 1;
         }
     </style>
 </head>
 <body>
     <div class="overlay"></div>
-    <div class="title-bar">
-        <span>🍶 诗仙李白 <span class="status-badge" id="voiceStatus">百度语音</span></span>
-        <button class="voice-toggle" id="voiceToggleBtn">🔊 语音开启</button>
-    </div>
-    
-    <div class="activate-tip" id="activateTip">
-        🔊 点击任意位置激活语音
-    </div>
+    <div class="title-bar">🍶 诗仙李白</div>
     
     <div class="chat-container" id="chatContainer">
         <div class="message ai">
@@ -212,44 +165,8 @@
         <button id="sendBtn">发送</button>
     </div>
     
-    <div class="voice-control">
-        <button class="voice-btn" id="voiceStopBtn">⏹️</button>
-    </div>
-    
     <script>
-        // ============================================================
-        // ==================== 配置区：填入你的百度密钥 ====================
-        // ============================================================
-        
-        // 【重要】在百度智能云控制台 → 语音技术 → 应用列表 → 创建应用
-        // 创建后你会得到 API Key 和 Secret Key，填到下面两个变量里
-        
-        const BAIDU_API_KEY = "FjIYRhK0A6Yk832WoRFaVwnn";        // ← 这里填你的 API Key
-        const BAIDU_SECRET_KEY = "DeHZ9LMACVs6PfSRqalkEUCtMqKirLtf";  // ← 这里填你的 Secret Key
-        
-        // 设备标识，可以不改
-        const BAIDU_CUID = "libai_app_001";
-        
-        // 智谱 AI 的 API Key（聊天用，保持不变）
-        const ZHIPU_API_KEY = "1142057da44e41c68492a82950637800.FbvrUPhIKqXvm4IU";
-        const ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/paas/v4";
-        
-        // 百度TTS配置（可调节音色语速）
-        const BAIDU_TTS_VOICE = 1;      // 发音人：0=女声，1=男声（推荐李白用1）
-        const BAIDU_TTS_SPEED = 5;      // 语速：0-15，5为正常
-        const BAIDU_TTS_PITCH = 5;      // 音调：0-15，5为正常
-        const BAIDU_TTS_VOLUME = 9;     // 音量：0-15，9为适中
-        
-        // ============================================================
-        // 以下代码无需修改
-        // ============================================================
-        
-        let voiceEnabled = true;
-        let audioActivated = false;
-        let currentAudio = null;
-        let baiduAccessToken = null;
-        let tokenExpireTime = 0;
-        
+        // 对话历史
         let messages = [
             { role: "system", content: `你是**唐代诗人李白**，字太白，号青莲居士，人称"诗仙"。你生于盛唐，生性豪放洒脱，嗜酒爱山水，一生好游名山大川，诗风飘逸浪漫，气势磅礴。
 
@@ -268,166 +185,48 @@
         const chatContainer = document.getElementById('chatContainer');
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
-        const voiceToggleBtn = document.getElementById('voiceToggleBtn');
-        const voiceStopBtn = document.getElementById('voiceStopBtn');
-        const voiceStatus = document.getElementById('voiceStatus');
-        const activateTip = document.getElementById('activateTip');
         
-        // 获取百度Access Token
-        async function getBaiduAccessToken() {
-            if (baiduAccessToken && Date.now() < tokenExpireTime) {
-                return baiduAccessToken;
-            }
-            
-            try {
-                const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${BAIDU_API_KEY}&client_secret=${BAIDU_SECRET_KEY}`;
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (data.access_token) {
-                    baiduAccessToken = data.access_token;
-                    tokenExpireTime = Date.now() + (data.expires_in - 300) * 1000;
-                    console.log("百度Token获取成功");
-                    return baiduAccessToken;
-                } else {
-                    throw new Error(data.error_description || "获取token失败");
-                }
-            } catch (error) {
-                console.error("获取百度Token失败:", error);
-                throw error;
-            }
-        }
-        
-        // 百度语音合成
-        async function speakWithBaidu(text) {
-            if (!voiceEnabled) return;
-            if (!audioActivated) {
-                console.log("请先激活语音");
-                return;
-            }
-            
-            let speakText = text;
-            if (speakText.length > 300) {
-                speakText = speakText.substring(0, 300) + "……";
-            }
-            
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
-            }
-            
-            if (voiceStatus) voiceStatus.textContent = "生成语音...";
-            
-            try {
-                const token = await getBaiduAccessToken();
-                const ttsUrl = `https://tsn.baidu.com/text2audio?tex=${encodeURIComponent(speakText)}&lan=zh&cuid=${BAIDU_CUID}&ctp=1&tok=${token}&per=${BAIDU_TTS_VOICE}&spd=${BAIDU_TTS_SPEED}&pit=${BAIDU_TTS_PITCH}&vol=${BAIDU_TTS_VOLUME}&aue=3`;
-                
-                const response = await fetch(ttsUrl);
-                
-                if (!response.ok) {
-                    throw new Error(`百度TTS错误: ${response.status}`);
-                }
-                
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    const errorData = await response.json();
-                    throw new Error(`百度TTS错误: ${JSON.stringify(errorData)}`);
-                }
-                
-                const audioBlob = await response.blob();
-                const audioUrl = URL.createObjectURL(audioBlob);
-                
-                currentAudio = new Audio(audioUrl);
-                currentAudio.onplay = () => { if (voiceStatus) voiceStatus.textContent = "朗读中"; };
-                currentAudio.onended = () => {
-                    currentAudio = null;
-                    URL.revokeObjectURL(audioUrl);
-                    if (voiceStatus) voiceStatus.textContent = "百度语音";
-                };
-                currentAudio.onerror = (e) => {
-                    console.error("播放错误:", e);
-                    currentAudio = null;
-                    if (voiceStatus) voiceStatus.textContent = "播放失败";
-                    setTimeout(() => {
-                        if (voiceStatus && voiceStatus.textContent === "播放失败") {
-                            voiceStatus.textContent = "百度语音";
-                        }
-                    }, 2000);
-                };
-                
-                await currentAudio.play();
-                
-            } catch (error) {
-                console.error("百度TTS失败:", error);
-                if (voiceStatus) voiceStatus.textContent = "语音失败";
-                setTimeout(() => {
-                    if (voiceStatus && voiceStatus.textContent === "语音失败") {
-                        voiceStatus.textContent = "百度语音";
-                    }
-                }, 2000);
-            }
-        }
-        
-        function stopSpeaking() {
-            if (currentAudio) {
-                currentAudio.pause();
-                currentAudio = null;
-            }
-            if (voiceStatus) voiceStatus.textContent = "百度语音";
-        }
-        
-        function activateAudio() {
-            if (audioActivated) return;
-            audioActivated = true;
-            if (activateTip) activateTip.style.display = "none";
-            if (voiceStatus) voiceStatus.textContent = "已激活";
-            setTimeout(() => {
-                const welcomeMsg = document.querySelector('.message.ai .bubble')?.innerText;
-                if (welcomeMsg && voiceEnabled) {
-                    speakWithBaidu(welcomeMsg);
-                }
-            }, 500);
-            console.log("语音已激活");
-        }
-        
+        // 添加消息到界面
         function addMessage(text, isUser = false, isThinking = false) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${isUser ? 'user' : 'ai'}`;
             if (isThinking) messageDiv.classList.add('thinking');
+            
             const bubble = document.createElement('div');
             bubble.className = 'bubble';
+            
             if (isThinking) {
                 bubble.innerHTML = '正在思考<span class="dot-animation"></span>';
             } else {
                 bubble.innerText = text;
             }
+            
             messageDiv.appendChild(bubble);
             chatContainer.appendChild(messageDiv);
+            
+            // 滚动到底部
             chatContainer.scrollTop = chatContainer.scrollHeight;
+            
             return messageDiv;
         }
         
+        // 移除思考中的消息
         function removeThinkingMessage(thinkingMsg) {
             if (thinkingMsg && thinkingMsg.parentNode) {
                 thinkingMsg.remove();
             }
         }
         
-        function displayAIReply(replyText) {
-            addMessage(replyText, false);
-            if (audioActivated && voiceEnabled) {
-                speakWithBaidu(replyText);
-            }
-        }
-        
+        // 调用智谱 AI API
         async function getAIReply(userMessage) {
             messages.push({ role: "user", content: userMessage });
+            
             try {
-                const response = await fetch(`${ZHIPU_BASE_URL}/chat/completions`, {
+                const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${ZHIPU_API_KEY}`
+                        'Authorization': 'Bearer 1142057da44e41c68492a82950637800.FbvrUPhIKqXvm4IU'
                     },
                     body: JSON.stringify({
                         model: 'glm-4-flash',
@@ -435,55 +234,45 @@
                         temperature: 0.9
                     })
                 });
+                
                 const data = await response.json();
                 const aiReply = data.choices[0].message.content;
                 messages.push({ role: "assistant", content: aiReply });
                 return aiReply;
             } catch (error) {
-                console.error('API Error:', error);
+                console.error('Error:', error);
                 return '网络不通，请稍后再试。\n（诗仙游历中，信号不佳）';
             }
         }
         
+        // 发送消息
         async function sendMessage() {
-            if (!audioActivated) {
-                activateAudio();
-            }
             const userText = messageInput.value.trim();
             if (!userText) return;
+            
             messageInput.value = '';
+            
+            // 添加用户消息
             addMessage(userText, true);
+            
+            // 添加思考中的消息
             const thinkingMsg = addMessage('', false, true);
+            
+            // 获取 AI 回复
             const aiReply = await getAIReply(userText);
+            
+            // 移除思考消息
             removeThinkingMessage(thinkingMsg);
-            displayAIReply(aiReply);
+            
+            // 添加 AI 回复
+            addMessage(aiReply, false);
         }
         
-        function toggleVoice() {
-            voiceEnabled = !voiceEnabled;
-            if (voiceEnabled) {
-                voiceToggleBtn.innerHTML = '🔊 语音开启';
-                voiceToggleBtn.style.background = 'rgba(255,255,255,0.2)';
-                if (voiceStatus) voiceStatus.textContent = audioActivated ? "百度语音" : "未激活";
-            } else {
-                voiceToggleBtn.innerHTML = '🔇 语音关闭';
-                voiceToggleBtn.style.background = 'rgba(200,0,0,0.5)';
-                if (voiceStatus) voiceStatus.textContent = "语音关闭";
-                stopSpeaking();
-            }
-        }
-        
+        // 绑定事件
         sendBtn.addEventListener('click', sendMessage);
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
-        voiceToggleBtn.addEventListener('click', toggleVoice);
-        voiceStopBtn.addEventListener('click', stopSpeaking);
-        
-        document.addEventListener('click', activateAudio);
-        document.addEventListener('touchstart', activateAudio);
-        
-        console.log("百度语音版已加载，请点击页面激活语音");
     </script>
 </body>
 </html>
