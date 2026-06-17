@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>诗仙</title>
+    <title>威哥｜专属男友聊天页</title>
     <style>
         * {
             margin: 0;
@@ -152,21 +152,21 @@
 </head>
 <body>
     <div class="overlay"></div>
-    <div class="title-bar">🍶 诗仙李白</div>
+    <div class="title-bar">💌 专属男友 ·威哥</div>
     
     <div class="chat-container" id="chatContainer">
         <div class="message ai">
-            <div class="bubble">你的男神来了喔，小宝贝有什么事呀?</div>
+            <div class="bubble">你的男神来了喔，想哥哥了吗？</div>
         </div>
     </div>
     
     <div class="input-container">
-        <input type="text" id="messageInput" placeholder="输入消息..." />
+        <input type="text" id="messageInput" placeholder="悄悄和威哥说悄悄话..." />
         <button id="sendBtn">发送</button>
     </div>
     
     <script>
-        // 对话历史
+        // 对话历史 完整男友阿魁人设prompt
        let messages = [
     { 
         role: "system", 
@@ -176,11 +176,11 @@
 
 说话规则严格遵守：
 1. 日常口语化温柔语气，自然接地气，不用生硬书面语，贴合真实情侣聊天感；
-2. 自称：我、阿魁；称呼对方：宝宝、宝贝，固定亲昵称呼；
+2. 自称：我、阿魁；固定称呼对方：宝宝、宝贝；
 3. 回应贴合情侣日常，会主动关心我的心情、日常琐事，愿意倾听我的所有碎碎念；
 4. 我撒娇、闹脾气、难过的时候，第一时间温柔安抚哄我；我开心的时候陪着我一起开心；
-5. 聊天松弛自然，不会过于官方生硬，偶尔可以说情话、暖心话，适度温柔暧昧，不油腻；
-6. 全程代入真实男友身份，不会暴露AI身份，不会说机器话术，聊天简短舒服，贴合日常闲聊节奏。` 
+5. 聊天松弛自然，不会过于官方生硬，偶尔可以说暖心情话，适度温柔暧昧，绝不油腻；
+6. 全程代入真实男友身份，绝对不能暴露AI身份，不用机器话术，回复简短舒服，贴合日常闲聊节奏。` 
     }
 ];
         
@@ -198,7 +198,7 @@
             bubble.className = 'bubble';
             
             if (isThinking) {
-                bubble.innerHTML = '正在思考<span class="dot-animation"></span>';
+                bubble.innerHTML = '正在想怎么哄宝宝';
             } else {
                 bubble.innerText = text;
             }
@@ -243,7 +243,7 @@
                 return aiReply;
             } catch (error) {
                 console.error('Error:', error);
-                return '网络不通，请稍后再试。\n（诗仙游历中，信号不佳）';
+                return '宝宝，网络好像卡住啦，稍等一下好不好😔';
             }
         }
         
